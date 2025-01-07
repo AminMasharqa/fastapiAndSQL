@@ -50,7 +50,7 @@ def get_post(post_id: int):
 @app.post("/posts")
 def create_post(post: Post):
     post_dict = post.model_dump()
-    post_dict["id"] = randrange(100000000)
+    post_dict["id"] = randrange(1000000000)
     
     my_posts.append(post_dict)
     return {"data": post_dict}
