@@ -1,0 +1,146 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pym
+*.so
+*.dylib
+*.dll
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+*.cover
+.hypothesis/
+.pytest_cache/
+.coverage.*
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Pytype type checker
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+
+# Flask/Django local settings
+instance/
+.webassets-cache
+*.env
+*.env.*
+
+# Scrapy stuff
+.scrapy/
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
+
+# Rider
+.idea/
+
+# Local and sensitive config
+*.secret
+.secret/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.~*
+*.swp
+*.swo
+*.tmp
+
+# System files
+.Python
+__MACOSX/
+
+# Virtual environment folders
+venv/
+.env/
+fastapi-venv/
+
+# PostgreSQL and pgAdmin files
+pgadmin4.db
+pgadmin.log
+pgadmin_session/
+pgadmin_storage/
+
+# Logs
+*.log
+logs/
+
+# Temporary editor/IDE files
+*.sublime-workspace
+*.sublime-project
+*.bak
+*.swp
+
+# Node modules (if applicable)
+node_modules/
