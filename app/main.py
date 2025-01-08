@@ -1,36 +1,21 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
-from random import randrange
-import psycopg
-import psycopg.rows
-from dotenv import load_dotenv
-import os
+from sqlalchemy.orm import Session
 import logging
+
+from . import models
+from .database import engine
+
+models.Base.metadata.create_all(bind=engine)
+
+from .database import get_db
+
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get database credentials from environment variables
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "dbname": os.getenv("DB_NAME"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "port": int(os.getenv("DB_PORT", 5432)),  # Default to 5432 if DB_PORT is not set
-}
-
-# Dependency for database connection
-def get_db_connection():
-    try:
-        conn = psycopg.connect(**DB_CONFIG, row_factory=psycopg.rows.dict_row)
-        yield conn
-    finally:
-        conn.close()
 
 # FastAPI app initialization
 app = FastAPI()
@@ -45,40 +30,45 @@ def read_root():
     logger.info("Root endpoint accessed.")
     return {"message": "Hello World!"}
 
-@app.get("/posts", response_model=List[dict])
-def get_posts(db: psycopg.Connection = Depends(get_db_connection)):
+from fastapi.encoders import jsonable_encoder
+
+@app.get("/posts")  # Use the Post Pydantic model
+def get_posts(db: Session = Depends(get_db)):
     logger.info("Fetching all posts from the database.")
     try:
-        with db.cursor() as cur:
-            cur.execute("SELECT * FROM posts;")
-            posts = cur.fetchall()
-            if not posts:
-                logger.warning("No posts found.")
-                return {"data": [], "message": "No posts available."}
-            logger.info(f"Fetched {len(posts)} posts.")
-            return posts
+        posts = db.query(models.Post).all()
+        if not posts:
+            logger.warning("No posts found.")
+            return []
+        logger.info(f"Fetched {len(posts)} posts.")
+        return posts  # Convert ORM objects to JSON serializable format
     except Exception as e:
         logger.error(f"Error fetching posts: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching posts."
         )
+        
+@app.get("/sqlalchemy")
+def test_posts(db: Session = Depends(get_db)):
+    posts = db.query(models.Post).all()
+    return  {"details:":posts}
+        
+
 
 @app.get("/posts/{post_id}")
-def get_post(post_id: int, db: psycopg.Connection = Depends(get_db_connection)):
+def get_post(post_id: int, db: Session = Depends(get_db)):
     logger.info(f"Fetching post with ID: {post_id}")
     try:
-        with db.cursor() as cur:
-            cur.execute("SELECT * FROM posts WHERE id = %s;", (post_id,))
-            post = cur.fetchone()
-            if not post:
-                logger.warning(f"Post with ID {post_id} not found.")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Post with ID {post_id} not found."
-                )
-            logger.info(f"Post with ID {post_id} fetched successfully.")
-            return post
+        post = db.query(models.Post).filter(models.Post.id == post_id).first()
+        if not post:
+            logger.warning(f"Post with ID {post_id} not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Post with ID {post_id} not found."
+            )
+        logger.info(f"Post with ID {post_id} fetched successfully.")
+        return post
     except Exception as e:
         logger.error(f"Error fetching post with ID {post_id}: {e}")
         raise HTTPException(
@@ -87,18 +77,15 @@ def get_post(post_id: int, db: psycopg.Connection = Depends(get_db_connection)):
         )
 
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post, db: psycopg.Connection = Depends(get_db_connection)):
+def create_post(post: Post, db: Session = Depends(get_db)):
     logger.info(f"Creating a new post with title: {post.title}")
     try:
-        with db.cursor() as cur:
-            cur.execute(
-                "INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING id;",
-                (post.title, post.content, post.published)
-            )
-            post_id = cur.fetchone()["id"]
-            db.commit()
-            logger.info(f"Post created with ID: {post_id}")
-            return {"id": post_id, **post.model_dump()}
+        new_post = models.Post(**post.model_dump())
+        db.add(new_post)
+        db.commit()
+        db.refresh(new_post)
+        logger.info(f"Post created with ID: {new_post.id}")
+        return new_post
     except Exception as e:
         logger.error(f"Error creating post: {e}")
         raise HTTPException(
@@ -107,24 +94,22 @@ def create_post(post: Post, db: psycopg.Connection = Depends(get_db_connection))
         )
 
 @app.put("/posts/{post_id}")
-def update_post(post_id: int, post: Post, db: psycopg.Connection = Depends(get_db_connection)):
+def update_post(post_id: int, post: Post, db: Session = Depends(get_db)):
     logger.info(f"Updating post with ID: {post_id}")
     try:
-        with db.cursor() as cur:
-            cur.execute(
-                "UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING id;",
-                (post.title, post.content, post.published, post_id)
+        existing_post = db.query(models.Post).filter(models.Post.id == post_id).first()
+        if not existing_post:
+            logger.warning(f"Post with ID {post_id} not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Post with ID {post_id} not found."
             )
-            updated_post = cur.fetchone()
-            if not updated_post:
-                logger.warning(f"Post with ID {post_id} not found.")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Post with ID {post_id} not found."
-                )
-            db.commit()
-            logger.info(f"Post with ID {post_id} updated successfully.")
-            return {"id": post_id, **post.dict()}
+        for key, value in post.model_dump().items():
+            setattr(existing_post, key, value)
+        db.commit()
+        db.refresh(existing_post)
+        logger.info(f"Post with ID {post_id} updated successfully.")
+        return existing_post
     except Exception as e:
         logger.error(f"Error updating post with ID {post_id}: {e}")
         raise HTTPException(
@@ -133,24 +118,24 @@ def update_post(post_id: int, post: Post, db: psycopg.Connection = Depends(get_d
         )
 
 @app.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(post_id: int, db: psycopg.Connection = Depends(get_db_connection)):
+def delete_post(post_id: int, db: Session = Depends(get_db)):
     logger.info(f"Deleting post with ID: {post_id}")
     try:
-        with db.cursor() as cur:
-            cur.execute("DELETE FROM posts WHERE id = %s RETURNING id;", (post_id,))
-            deleted_post = cur.fetchone()
-            if not deleted_post:
-                logger.warning(f"Post with ID {post_id} not found.")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Post with ID {post_id} not found."
-                )
-            db.commit()
-            logger.info(f"Post with ID {post_id} deleted successfully.")
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        post = db.query(models.Post).filter(models.Post.id == post_id).first()
+        if not post:
+            logger.warning(f"Post with ID {post_id} not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Post with ID {post_id} not found."
+            )
+        db.delete(post)
+        db.commit()
+        logger.info(f"Post with ID {post_id} deleted successfully.")
     except Exception as e:
         logger.error(f"Error deleting post with ID {post_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the post."
         )
+
+
