@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Response, status, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Optional, List
+from typing import List
 from sqlalchemy.orm import Session
 import logging
 
+from .utils import hash
+
 from . import models
 from .database import engine
+from .schemas import PostCreate ,Post ,UserCreate ,UserOut
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -20,10 +22,7 @@ logger = logging.getLogger(__name__)
 # FastAPI app initialization
 app = FastAPI()
 
-class Post(BaseModel):
-    title: str
-    content: str
-    published: Optional[bool] = True
+
 
 @app.get("/")
 def read_root():
@@ -32,7 +31,7 @@ def read_root():
 
 from fastapi.encoders import jsonable_encoder
 
-@app.get("/posts")  # Use the Post Pydantic model
+@app.get("/posts",response_model=List[Post])  # Use the Post Pydantic model
 def get_posts(db: Session = Depends(get_db)):
     logger.info("Fetching all posts from the database.")
     try:
@@ -48,15 +47,11 @@ def get_posts(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while fetching posts."
         )
-        
-@app.get("/sqlalchemy")
-def test_posts(db: Session = Depends(get_db)):
-    posts = db.query(models.Post).all()
-    return  {"details:":posts}
+
         
 
 
-@app.get("/posts/{post_id}")
+@app.get("/posts/{post_id}",response_model=Post)
 def get_post(post_id: int, db: Session = Depends(get_db)):
     logger.info(f"Fetching post with ID: {post_id}")
     try:
@@ -76,8 +71,8 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
             detail="An error occurred while fetching the post."
         )
 
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post, db: Session = Depends(get_db)):
+@app.post("/posts", status_code=status.HTTP_201_CREATED,response_model=Post)
+def create_post(post: PostCreate, db: Session = Depends(get_db)):
     logger.info(f"Creating a new post with title: {post.title}")
     try:
         new_post = models.Post(**post.model_dump())
@@ -93,8 +88,8 @@ def create_post(post: Post, db: Session = Depends(get_db)):
             detail="An error occurred while creating the post."
         )
 
-@app.put("/posts/{post_id}")
-def update_post(post_id: int, post: Post, db: Session = Depends(get_db)):
+@app.put("/posts/{post_id}",response_model=Post)
+def update_post(post_id: int, post: PostCreate, db: Session = Depends(get_db)):
     logger.info(f"Updating post with ID: {post_id}")
     try:
         existing_post = db.query(models.Post).filter(models.Post.id == post_id).first()
@@ -138,4 +133,27 @@ def delete_post(post_id: int, db: Session = Depends(get_db)):
             detail="An error occurred while deleting the post."
         )
 
+
+@app.post("/users",status_code=status.HTTP_201_CREATED,response_model=UserOut)
+def create_user(user:UserCreate,db: Session = Depends(get_db)):
+    logger.info(f"Creating a new User with email: {user.email}")
+    try:
+        #hash the password  - user.password
+        hashed_password = hash(user.password)
+        user.password= hashed_password 
+        new_user = models.User(**user.model_dump())
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        logger.info(f"User created with ID: {new_user.id}")
+        return new_user
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while creating the user."
+        )
+
+    
+    
 
