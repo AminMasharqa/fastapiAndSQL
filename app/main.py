@@ -12,7 +12,7 @@ from .schemas import PostCreate ,Post ,UserCreate ,UserOut
 models.Base.metadata.create_all(bind=engine)
 
 from .database import get_db
-from .routers import user , post
+from .routers import user , post , auth
 
 
 
@@ -36,5 +36,6 @@ from fastapi.encoders import jsonable_encoder
 
 app.include_router(user.router)
 app.include_router(post.router)
+app.include_router(auth.router)
 
 

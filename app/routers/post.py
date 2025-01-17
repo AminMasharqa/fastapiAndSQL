@@ -9,12 +9,14 @@ from ..database import get_db
 from ..schemas import Post  ,PostCreate
 
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/posts"
+)
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__) 
 
-@router.get("/posts",response_model=List[Post])  # Use the Post Pydantic model
+@router.get("/",response_model=List[Post])  # Use the Post Pydantic model
 def get_posts(db: Session = Depends(get_db)):
     logger.info("Fetching all posts from the database.")
     try:
@@ -34,7 +36,7 @@ def get_posts(db: Session = Depends(get_db)):
         
 
 
-@router.get("/posts/{post_id}",response_model=Post)
+@router.get("/{post_id}",response_model=Post)
 def get_post(post_id: int, db: Session = Depends(get_db)):
     logger.info(f"Fetching post with ID: {post_id}")
     try:
@@ -54,7 +56,7 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
             detail="An error occurred while fetching the post."
         )
 
-@router.post("/posts", status_code=status.HTTP_201_CREATED,response_model=Post)
+@router.post("/", status_code=status.HTTP_201_CREATED,response_model=Post)
 def create_post(post: PostCreate, db: Session = Depends(get_db)):
     logger.info(f"Creating a new post with title: {post.title}")
     try:
@@ -71,7 +73,7 @@ def create_post(post: PostCreate, db: Session = Depends(get_db)):
             detail="An error occurred while creating the post."
         )
 
-@router.put("/posts/{post_id}",response_model=Post)
+@router.put("/{post_id}",response_model=Post)
 def update_post(post_id: int, post: PostCreate, db: Session = Depends(get_db)):
     logger.info(f"Updating post with ID: {post_id}")
     try:
@@ -95,7 +97,7 @@ def update_post(post_id: int, post: PostCreate, db: Session = Depends(get_db)):
             detail="An error occurred while updating the post."
         )
 
-@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(post_id: int, db: Session = Depends(get_db)):
     logger.info(f"Deleting post with ID: {post_id}")
     try:
