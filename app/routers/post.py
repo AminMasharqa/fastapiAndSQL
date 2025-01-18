@@ -8,6 +8,9 @@ from ..database import get_db
 
 from ..schemas import Post  ,PostCreate
 
+from ..oauth2 import get_current_user
+from .. import oauth2
+
 
 router = APIRouter(
     prefix="/posts"
@@ -57,9 +60,10 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
         )
 
 @router.post("/", status_code=status.HTTP_201_CREATED,response_model=Post)
-def create_post(post: PostCreate, db: Session = Depends(get_db)):
+def create_post(post: PostCreate, db: Session = Depends(get_db), user_id : int = Depends(oauth2.get_current_user)):
     logger.info(f"Creating a new post with title: {post.title}")
     try:
+        print(user_id)
         new_post = models.Post(**post.model_dump())
         db.add(new_post)
         db.commit()
