@@ -22,6 +22,7 @@ class Post(PostBase):
     created_at:datetime
     
     
+    
 
 
 class UserCreate(BaseModel):
@@ -44,4 +45,9 @@ class userLogin(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[str] =None
+    
+
+class Token(BaseModel):
+    access_token:str
+    token_type:str
     

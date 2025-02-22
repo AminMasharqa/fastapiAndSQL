@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__) 
 
 @router.get("/",response_model=List[Post])  # Use the Post Pydantic model
-def get_posts(db: Session = Depends(get_db)):
+def get_posts(db: Session = Depends(get_db),current_user : int = Depends(oauth2.get_current_user)):
     logger.info("Fetching all posts from the database.")
     try:
         posts = db.query(models.Post).all()
@@ -40,7 +40,7 @@ def get_posts(db: Session = Depends(get_db)):
 
 
 @router.get("/{post_id}",response_model=Post)
-def get_post(post_id: int, db: Session = Depends(get_db)):
+def get_post(post_id: int, db: Session = Depends(get_db),current_user : int = Depends(oauth2.get_current_user)):
     logger.info(f"Fetching post with ID: {post_id}")
     try:
         post = db.query(models.Post).filter(models.Post.id == post_id).first()
@@ -60,10 +60,10 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
         )
 
 @router.post("/", status_code=status.HTTP_201_CREATED,response_model=Post)
-def create_post(post: PostCreate, db: Session = Depends(get_db), user_id : int = Depends(oauth2.get_current_user)):
+def create_post(post: PostCreate, db: Session = Depends(get_db), current_user : int = Depends(oauth2.get_current_user)):
     logger.info(f"Creating a new post with title: {post.title}")
     try:
-        print(user_id)
+        # print(current_user)
         new_post = models.Post(**post.model_dump())
         db.add(new_post)
         db.commit()
@@ -78,7 +78,7 @@ def create_post(post: PostCreate, db: Session = Depends(get_db), user_id : int =
         )
 
 @router.put("/{post_id}",response_model=Post)
-def update_post(post_id: int, post: PostCreate, db: Session = Depends(get_db)):
+def update_post(post_id: int, post: PostCreate, db: Session = Depends(get_db),current_user : int = Depends(oauth2.get_current_user)):
     logger.info(f"Updating post with ID: {post_id}")
     try:
         existing_post = db.query(models.Post).filter(models.Post.id == post_id).first()
@@ -102,7 +102,7 @@ def update_post(post_id: int, post: PostCreate, db: Session = Depends(get_db)):
         )
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(post_id: int, db: Session = Depends(get_db)):
+def delete_post(post_id: int, db: Session = Depends(get_db),current_user : int = Depends(oauth2.get_current_user)):
     logger.info(f"Deleting post with ID: {post_id}")
     try:
         post = db.query(models.Post).filter(models.Post.id == post_id).first()
